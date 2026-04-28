@@ -28,9 +28,9 @@ dependencies {
     require(mockbukkitShaFile.exists()) {
         ".mockbukkit-sha が見つかりません。scripts/install_mockbukkit.sh を実行してください。"
     }
-    val mockbukkitShortSha = mockbukkitShaFile.readText().trim().take(7)
-    require(mockbukkitShortSha.matches(Regex("[0-9a-f]{7}"))) {
-        ".mockbukkit-sha の内容が不正です: '$mockbukkitShortSha'"
+    val mockbukkitShortSha = mockbukkitShaFile.readText().trim().take(12)
+    require(mockbukkitShortSha.matches(Regex("[0-9a-f]{12}"))) {
+        ".mockbukkit-sha の内容が不正です（先頭 12 文字を 16 進で含む必要があります）: '$mockbukkitShortSha'"
     }
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.1:dev-$mockbukkitShortSha")
     testImplementation(platform("org.junit:junit-bom:5.11.4"))

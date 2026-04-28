@@ -20,7 +20,7 @@ if [ ! -f "$SHA_FILE" ]; then
 fi
 
 SHA=$(tr -d '[:space:]' < "$SHA_FILE")
-SHORT_SHA="${SHA:0:7}"
+SHORT_SHA="${SHA:0:12}"
 
 if [ -d "$CLONE_DIR/.git" ]; then
     echo "[update] $CLONE_DIR"
@@ -32,6 +32,9 @@ else
 fi
 
 git -C "$CLONE_DIR" checkout --detach "$SHA"
+# MockBukkit の getFullVersion() は `git rev-parse --short HEAD` を使う。
+# clone 深度によって abbrev 長が変わると artifact 名がブレるので 12 文字で固定。
+git -C "$CLONE_DIR" config core.abbrev 12
 
 (
     cd "$CLONE_DIR"
