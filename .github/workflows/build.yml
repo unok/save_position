@@ -1,0 +1,70 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Cache Gradle home
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '.mockbukkit-sha') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Cache MockBukkit (mavenLocal)
+        id: mockbukkit-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/mockbukkit
+          key: mockbukkit-${{ runner.os }}-${{ hashFiles('.mockbukkit-sha') }}
+
+      - name: Cache MockBukkit build sources
+        uses: actions/cache@v4
+        with:
+          path: .mockbukkit-build
+          key: mockbukkit-src-${{ runner.os }}-${{ hashFiles('.mockbukkit-sha') }}
+
+      - name: Build & publish MockBukkit to mavenLocal
+        if: steps.mockbukkit-cache.outputs.cache-hit != 'true'
+        run: ./scripts/install_mockbukkit.sh
+
+      - name: Build SavePosition
+        run: ./gradlew build --no-daemon --console=plain
+
+      - name: Upload plugin JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: SavePosition-jar
+          path: build/libs/*.jar
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: build/reports/tests/test
+          if-no-files-found: ignore
+          retention-days: 7

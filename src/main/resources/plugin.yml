@@ -1,0 +1,15 @@
+name: SavePosition
+version: '${version}'
+main: com.example.saveposition.SavePositionPlugin
+api-version: '26.1.2'
+description: 座標を名前付きで保存・共有できるプラグイン
+author: unok
+commands:
+  pos:
+    description: 座標保存コマンド
+    usage: /pos <save|list|show|delete|share|unshare|shared> [args...]
+    aliases: [position, savepos]
+permissions:
+  saveposition.use:
+    description: SavePosition プラグインを使用する権限
+    default: true
