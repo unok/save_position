@@ -95,4 +95,66 @@ class PluginSmokeTest {
         }
         assertTrue(found, "shared 一覧に Owner1 の spot が含まれる");
     }
+
+    @Test
+    void gotoStartReturnsConfirmation() {
+        PlayerMock player = server.addPlayer();
+        player.performCommand("pos save home");
+        while (player.nextMessage() != null) { /* drain save messages */ }
+
+        player.performCommand("pos goto home");
+        boolean found = false;
+        String line;
+        while ((line = player.nextMessage()) != null) {
+            if (line.contains("home") && line.contains("ガイド")) {
+                found = true;
+                break;
+            }
+        }
+        assertTrue(found, "goto 開始メッセージに『home』とガイドが含まれる");
+    }
+
+    @Test
+    void gotoUnknownReturnsNotFound() {
+        PlayerMock player = server.addPlayer();
+        player.performCommand("pos goto nope");
+
+        String msg = player.nextMessage();
+        assertNotNull(msg);
+        assertTrue(msg.contains("見つかりません"), "未保存名は見つかりません応答: " + msg);
+    }
+
+    @Test
+    void gotoStopReturnsStoppedMessage() {
+        PlayerMock player = server.addPlayer();
+        player.performCommand("pos save home");
+        player.performCommand("pos goto home");
+        while (player.nextMessage() != null) { /* drain */ }
+
+        player.performCommand("pos goto stop");
+        String msg = player.nextMessage();
+        assertNotNull(msg);
+        assertTrue(msg.contains("停止"), "停止メッセージ: " + msg);
+    }
+
+    @Test
+    void gotoFallsBackToSharedPosition() {
+        PlayerMock owner = server.addPlayer("Owner2");
+        owner.performCommand("pos save base2");
+        owner.performCommand("pos share base2");
+        while (owner.nextMessage() != null) { /* drain */ }
+
+        PlayerMock viewer = server.addPlayer("Viewer2");
+        viewer.performCommand("pos goto base2");
+
+        boolean found = false;
+        String line;
+        while ((line = viewer.nextMessage()) != null) {
+            if (line.contains("base2") && line.contains("ガイド")) {
+                found = true;
+                break;
+            }
+        }
+        assertTrue(found, "共有地点 base2 でガイド開始: " + found);
+    }
 }

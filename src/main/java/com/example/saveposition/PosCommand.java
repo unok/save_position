@@ -20,13 +20,15 @@ import java.util.UUID;
 
 public class PosCommand implements CommandExecutor, TabCompleter {
     private static final List<String> SUBCOMMANDS = List.of(
-            "save", "list", "show", "delete", "share", "unshare", "shared"
+            "save", "list", "show", "delete", "share", "unshare", "shared", "goto"
     );
 
     private final PositionStore store;
+    private final GotoTracker tracker;
 
-    public PosCommand(PositionStore store) {
+    public PosCommand(PositionStore store, GotoTracker tracker) {
         this.store = store;
+        this.tracker = tracker;
     }
 
     @Override
@@ -45,6 +47,7 @@ public class PosCommand implements CommandExecutor, TabCompleter {
             case "share" -> handleShareToggle(sender, args, true);
             case "unshare" -> handleShareToggle(sender, args, false);
             case "shared" -> handleShared(sender, args);
+            case "goto" -> handleGoto(sender, args);
             default -> { sendHelp(sender); yield true; }
         };
     }
@@ -173,6 +176,52 @@ public class PosCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private boolean handleGoto(CommandSender sender, String[] args) {
+        Player player = requirePlayer(sender);
+        if (player == null) return true;
+        if (args.length < 2) {
+            sender.sendMessage(Component.text("使用法: /pos goto <名前> | /pos goto stop", NamedTextColor.YELLOW));
+            return true;
+        }
+        if (args[1].equalsIgnoreCase("stop")) {
+            if (tracker.stop(player)) {
+                sender.sendMessage(Component.text("ガイドを停止しました。", NamedTextColor.YELLOW));
+            } else {
+                sender.sendMessage(Component.text("ガイド中ではありません。", NamedTextColor.GRAY));
+            }
+            return true;
+        }
+        String name = args[1];
+        Optional<SavedPosition> own = store.get(player.getUniqueId(), name);
+        SavedPosition target;
+        String sharedOwner = null;
+        if (own.isPresent()) {
+            target = own.get();
+        } else {
+            SavedPosition fromShared = null;
+            for (PositionStore.SharedEntry entry : store.listAllShared()) {
+                if (entry.position().name().equalsIgnoreCase(name)) {
+                    fromShared = entry.position();
+                    sharedOwner = entry.ownerName();
+                    break;
+                }
+            }
+            if (fromShared == null) {
+                sender.sendMessage(Component.text("見つかりません: " + name, NamedTextColor.RED));
+                return true;
+            }
+            target = fromShared;
+        }
+        tracker.start(player, target);
+        Component msg = Component.text("『" + target.name() + "』をガイドします", NamedTextColor.GREEN);
+        if (sharedOwner != null) {
+            msg = msg.append(Component.text(" (" + sharedOwner + " の共有)", NamedTextColor.GRAY));
+        }
+        sender.sendMessage(msg);
+        sender.sendMessage(Component.text("停止するには /pos goto stop", NamedTextColor.GRAY));
+        return true;
+    }
+
     private Optional<UUID> resolveUuid(String name) {
         Player online = Bukkit.getPlayerExact(name);
         if (online != null) return Optional.of(online.getUniqueId());
@@ -195,6 +244,8 @@ public class PosCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(Component.text("/pos share <名前>         共有 ON", NamedTextColor.GRAY));
         sender.sendMessage(Component.text("/pos unshare <名前>       共有 OFF", NamedTextColor.GRAY));
         sender.sendMessage(Component.text("/pos shared [プレイヤー]  共有座標一覧", NamedTextColor.GRAY));
+        sender.sendMessage(Component.text("/pos goto <名前>          BossBar で方位ガイド開始", NamedTextColor.GRAY));
+        sender.sendMessage(Component.text("/pos goto stop            ガイド停止", NamedTextColor.GRAY));
     }
 
     private Component formatLine(SavedPosition pos) {
@@ -235,6 +286,22 @@ public class PosCommand implements CommandExecutor, TabCompleter {
                         if (!names.contains(p.getName())) names.add(p.getName());
                     });
                     yield filterPrefix(names, args[1]);
+                }
+                case "goto" -> {
+                    if (sender instanceof Player player) {
+                        List<String> names = new ArrayList<>();
+                        names.add("stop");
+                        store.listOwn(player.getUniqueId()).stream()
+                                .map(SavedPosition::name)
+                                .forEach(names::add);
+                        for (PositionStore.SharedEntry entry : store.listAllShared()) {
+                            if (!names.contains(entry.position().name())) {
+                                names.add(entry.position().name());
+                            }
+                        }
+                        yield filterPrefix(names, args[1]);
+                    }
+                    yield List.of();
                 }
                 default -> List.of();
             };

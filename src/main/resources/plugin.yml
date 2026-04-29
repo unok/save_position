@@ -7,7 +7,7 @@ author: unok
 commands:
   pos:
     description: 座標保存コマンド
-    usage: /pos <save|list|show|delete|share|unshare|shared> [args...]
+    usage: /pos <save|list|show|delete|share|unshare|shared|goto> [args...]
     aliases: [position, savepos]
 permissions:
   saveposition.use:
